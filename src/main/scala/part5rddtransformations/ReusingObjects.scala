@@ -107,9 +107,52 @@ object ReusingObjects {
     aggregate.collectAsMap()
   }
 
+  ////////////////// Version 3 - JVM arrays
+  object UglyTextStats extends Serializable {
+    val nLinesIndex = 0
+    val nWordsIndex = 1
+    val longestWordIndex = 2
+    val occurrencesIndex = 3
+
+    def aggregateNewRecord(textStats: Array[Int], record: String): Array[Int] = {
+      val newWords = record.split(" ") // Array of strings
+
+      var i = 0
+      while (i < newWords.length) {
+        val word = newWords(i)
+        val wordLength = word.length
+
+        textStats(longestWordIndex) = if (wordLength > textStats(longestWordIndex)) wordLength else textStats(longestWordIndex)
+        textStats(occurrencesIndex) += (if (word == criticalWord) 1 else 0)
+
+        i += 1
+      }
+
+      textStats(nLinesIndex) += 1
+      textStats(nWordsIndex) += newWords.length
+
+      textStats
+    }
+
+    def combineStats(stats1: Array[Int], stats2: Array[Int]): Array[Int] = {
+      stats1(nLinesIndex) += stats2(nLinesIndex)
+      stats1(nWordsIndex) += stats2(nWordsIndex)
+      stats1(longestWordIndex) = Math.max(stats1(longestWordIndex), stats2(longestWordIndex))
+      stats1(occurrencesIndex) += stats2(occurrencesIndex)
+
+      stats1
+    }
+  }
+
+  def collectStats3() = {
+    val aggregate: RDD[(String, Array[Int])] = text.aggregateByKey(Array.fill(4)(0))(UglyTextStats.aggregateNewRecord, UglyTextStats.combineStats)
+    aggregate.collectAsMap()
+  }
+
   def main(args: Array[String]): Unit = {
-    collectStats() // 4s
+    collectStats()
     collectStats2()
+    collectStats3()
 
     Thread.sleep(1000000)
   }
